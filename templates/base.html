@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mi Proyecto Flask</title>
+</head>
+<body>
+
+    <h1>Mi Proyecto Flask</h1>
+
+    <nav>
+        <a href="{{ url_for('inicio') }}">Inicio</a> |
+        <a href="{{ url_for('about') }}">Acerca de</a>
+    </nav>
+
+    <hr>
+
+    {% block content %}
+    {% endblock %}
+
+</body>
+</html>
