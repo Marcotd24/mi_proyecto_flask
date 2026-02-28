@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from flask import Flask, render_template, request, redirect
 
@@ -36,6 +37,7 @@ def crear_tabla():
     conn.commit()
     conn.close()
 
+
 crear_tabla()
 
 
@@ -49,7 +51,6 @@ def inicio():
     filas = conn.execute('SELECT * FROM productos').fetchall()
     conn.close()
 
-    # COLECCIÓN (LISTA)
     productos = []
 
     for fila in filas:
@@ -113,6 +114,9 @@ def editar_form(id):
     fila = conn.execute('SELECT * FROM productos WHERE id = ?', (id,)).fetchone()
     conn.close()
 
+    if fila is None:
+        return redirect('/')
+
     producto = Producto(
         fila['id'],
         fila['nombre'],
@@ -155,5 +159,11 @@ def about():
     return render_template("about.html")
 
 
+# ----------------------------------
+# CONFIGURACIÓN PARA RENDER
+# ----------------------------------
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000))
+    )
