@@ -1,43 +1,24 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Lista de Productos</h2>
 
-<h3>Agregar Producto</h3>
+<h2>Página de inicio</h2>
 
-<form action="/agregar" method="POST">
-    <label>Nombre:</label>
-    <input type="text" name="nombre" required>
+<p>Bienvenido a mi proyecto Flask.</p>
 
-    <label>Cantidad:</label>
-    <input type="number" name="cantidad" required>
+<h3>Opciones</h3>
 
-    <label>Precio:</label>
-    <input type="number" step="0.01" name="precio" required>
+<ul>
+    <li><a href="{{ url_for('datos') }}">Ver datos desde la base de datos</a></li>
+    <li><a href="{{ url_for('producto') }}">Agregar producto</a></li>
+</ul>
 
-    <button type="submit">Agregar</button>
-</form>
+<h3>Leer archivos</h3>
 
-<hr>
-
-{% if productos %}
-    <ul>
-        {% for producto in productos %}
-            <li>
-                <strong>{{ producto.nombre }}</strong> |
-                Cantidad: {{ producto.cantidad }} |
-                Precio: ${{ producto.precio }}
-
-                <a href="/editar/{{ producto.id }}">Editar</a> |
-                <a href="/eliminar/{{ producto.id }}"
-                   onclick="return confirm('¿Seguro que deseas eliminar este producto?')">
-                   Eliminar
-                </a>
-            </li>
-        {% endfor %}
-    </ul>
-{% else %}
-    <p>No hay productos aún.</p>
-{% endif %}
+<ul>
+    <li><a href="{{ url_for('leer_txt') }}">Leer archivo TXT</a></li>
+    <li><a href="{{ url_for('leer_json') }}">Leer archivo JSON</a></li>
+    <li><a href="{{ url_for('leer_csv') }}">Leer archivo CSV</a></li>
+</ul>
 
 {% endblock %}

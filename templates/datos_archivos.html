@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>Datos leídos desde archivo {{ tipo }}</h2>
+
+{% if datos %}
+
+<table border="1">
+    <tr>
+        <th>Nombre</th>
+        <th>Precio</th>
+    </tr>
+
+    {% for d in datos %}
+    <tr>
+        <td>{{ d.nombre }}</td>
+        <td>{{ d.precio }}</td>
+    </tr>
+    {% endfor %}
+
+</table>
+
+{% else %}
+
+<p>No hay datos para mostrar</p>
+
+{% endif %}
+
+<br>
+
+<a href="{{ url_for('index') }}">Volver al inicio</a>
+
+{% endblock %}
