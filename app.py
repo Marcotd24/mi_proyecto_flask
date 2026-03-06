@@ -1,169 +1,180 @@
+from flask import Flask, render_template, request
+from flask_sqlalchemy import SQLAlchemy
+import json
+import csv
 import os
-import sqlite3
-from flask import Flask, render_template, request, redirect
 
 app = Flask(__name__)
 
-# ----------------------------------
-# CLASE PRODUCTO (POO)
-# ----------------------------------
-class Producto:
-    def __init__(self, id, nombre, cantidad, precio):
-        self.id = id
-        self.nombre = nombre
-        self.cantidad = cantidad
-        self.precio = precio
+# ---------------------------------
+# CONFIGURACION BASE DE DATOS
+# ---------------------------------
 
-    def __str__(self):
-        return f"{self.nombre} - {self.cantidad} - {self.precio}"
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///inventario.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+db = SQLAlchemy(app)
 
-# ----------------------------------
-# CREAR TABLA SQLITE
-# ----------------------------------
-def crear_tabla():
-    conn = sqlite3.connect('inventario.db')
-    cursor = conn.cursor()
+# ---------------------------------
+# MODELO DE DATOS
+# ---------------------------------
 
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS productos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT NOT NULL,
-            cantidad INTEGER NOT NULL,
-            precio REAL NOT NULL
-        )
-    ''')
+class Producto(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100))
+    precio = db.Column(db.Float)
 
-    conn.commit()
-    conn.close()
+    def __repr__(self):
+        return f"<Producto {self.nombre}>"
 
+# Crear base de datos
+with app.app_context():
+    db.create_all()
 
-crear_tabla()
+# ---------------------------------
+# PAGINA PRINCIPAL
+# ---------------------------------
 
+@app.route("/")
+def index():
+    return render_template("index.html")
 
-# ----------------------------------
-# MOSTRAR PRODUCTOS (READ)
-# ----------------------------------
-@app.route('/')
-def inicio():
-    conn = sqlite3.connect('inventario.db')
-    conn.row_factory = sqlite3.Row
-    filas = conn.execute('SELECT * FROM productos').fetchall()
-    conn.close()
+# ---------------------------------
+# FORMULARIO PRODUCTO
+# ---------------------------------
 
-    productos = []
+@app.route("/producto")
+def producto():
+    return render_template("producto_form.html")
 
-    for fila in filas:
-        producto = Producto(
-            fila['id'],
-            fila['nombre'],
-            fila['cantidad'],
-            fila['precio']
-        )
-        productos.append(producto)
+# ---------------------------------
+# GUARDAR DATOS
+# ---------------------------------
 
-    return render_template('index.html', productos=productos)
+@app.route("/guardar_datos", methods=["POST"])
+def guardar_datos():
 
+    nombre = request.form["nombre"]
+    precio = request.form["precio"]
 
-# ----------------------------------
-# AGREGAR PRODUCTO (CREATE)
-# ----------------------------------
-@app.route('/agregar', methods=['POST'])
-def agregar():
-    nombre = request.form['nombre']
-    cantidad = request.form['cantidad']
-    precio = request.form['precio']
+    # ---------- SQLITE ----------
+    nuevo_producto = Producto(nombre=nombre, precio=precio)
+    db.session.add(nuevo_producto)
+    db.session.commit()
 
-    conn = sqlite3.connect('inventario.db')
-    cursor = conn.cursor()
+    # ---------- TXT ----------
+    with open("inventario/data/datos.txt", "a") as archivo:
+        archivo.write(f"{nombre},{precio}\n")
 
-    cursor.execute(
-        'INSERT INTO productos (nombre, cantidad, precio) VALUES (?, ?, ?)',
-        (nombre, cantidad, precio)
-    )
+    # ---------- JSON ----------
+    datos_json = []
 
-    conn.commit()
-    conn.close()
+    if os.path.exists("inventario/data/datos.json"):
+        with open("inventario/data/datos.json", "r") as archivo:
+            try:
+                datos_json = json.load(archivo)
+            except:
+                datos_json = []
 
-    return redirect('/')
+    datos_json.append({
+        "nombre": nombre,
+        "precio": precio
+    })
 
+    with open("inventario/data/datos.json", "w") as archivo:
+        json.dump(datos_json, archivo, indent=4)
 
-# ----------------------------------
-# ELIMINAR PRODUCTO (DELETE)
-# ----------------------------------
-@app.route('/eliminar/<int:id>')
-def eliminar(id):
-    conn = sqlite3.connect('inventario.db')
-    cursor = conn.cursor()
+    # ---------- CSV ----------
+    with open("inventario/data/datos.csv", "a", newline="") as archivo:
+        writer = csv.writer(archivo)
+        writer.writerow([nombre, precio])
 
-    cursor.execute('DELETE FROM productos WHERE id = ?', (id,))
+    return "Datos guardados correctamente en TXT, JSON, CSV y SQLite"
 
-    conn.commit()
-    conn.close()
+# ---------------------------------
+# MOSTRAR DATOS SQLITE
+# ---------------------------------
 
-    return redirect('/')
+@app.route("/datos")
+def datos():
 
+    productos = Producto.query.all()
 
-# ----------------------------------
-# FORMULARIO EDITAR
-# ----------------------------------
-@app.route('/editar/<int:id>')
-def editar_form(id):
-    conn = sqlite3.connect('inventario.db')
-    conn.row_factory = sqlite3.Row
-    fila = conn.execute('SELECT * FROM productos WHERE id = ?', (id,)).fetchone()
-    conn.close()
+    return render_template("datos.html", productos=productos)
 
-    if fila is None:
-        return redirect('/')
+# ---------------------------------
+# LEER TXT
+# ---------------------------------
 
-    producto = Producto(
-        fila['id'],
-        fila['nombre'],
-        fila['cantidad'],
-        fila['precio']
-    )
+@app.route("/leer_txt")
+def leer_txt():
 
-    return render_template('editar.html', producto=producto)
+    datos = []
 
+    try:
+        with open("inventario/data/datos.txt", "r") as archivo:
+            for linea in archivo:
+                nombre, precio = linea.strip().split(",")
+                datos.append({
+                    "nombre": nombre,
+                    "precio": precio
+                })
+    except:
+        datos = []
 
-# ----------------------------------
-# ACTUALIZAR PRODUCTO (UPDATE)
-# ----------------------------------
-@app.route('/actualizar/<int:id>', methods=['POST'])
-def actualizar(id):
-    nombre = request.form['nombre']
-    cantidad = request.form['cantidad']
-    precio = request.form['precio']
+    return render_template("datos_archivos.html", datos=datos, tipo="TXT")
 
-    conn = sqlite3.connect('inventario.db')
-    cursor = conn.cursor()
+# ---------------------------------
+# LEER JSON
+# ---------------------------------
 
-    cursor.execute('''
-        UPDATE productos
-        SET nombre = ?, cantidad = ?, precio = ?
-        WHERE id = ?
-    ''', (nombre, cantidad, precio, id))
+@app.route("/leer_json")
+def leer_json():
 
-    conn.commit()
-    conn.close()
+    datos = []
 
-    return redirect('/')
+    try:
+        with open("inventario/data/datos.json", "r") as archivo:
+            datos = json.load(archivo)
+    except:
+        datos = []
 
+    return render_template("datos_archivos.html", datos=datos, tipo="JSON")
 
-# ----------------------------------
+# ---------------------------------
+# LEER CSV
+# ---------------------------------
+
+@app.route("/leer_csv")
+def leer_csv():
+
+    datos = []
+
+    try:
+        with open("inventario/data/datos.csv", "r") as archivo:
+            lector = csv.reader(archivo)
+
+            for fila in lector:
+                datos.append({
+                    "nombre": fila[0],
+                    "precio": fila[1]
+                })
+    except:
+        datos = []
+
+    return render_template("datos_archivos.html", datos=datos, tipo="CSV")
+
+# ---------------------------------
 # ABOUT
-# ----------------------------------
+# ---------------------------------
+
 @app.route("/about")
 def about():
     return render_template("about.html")
 
+# ---------------------------------
+# EJECUTAR APP
+# ---------------------------------
 
-# ----------------------------------
-# CONFIGURACIÓN PARA RENDER
-# ----------------------------------
 if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-        port=int(os.environ.get("PORT", 10000))
-    )
+    app.run(host="0.0.0.0", port=10000, debug=True)
